@@ -1,0 +1,13 @@
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# venv
+.venv
+
+# development scripts
+test*.py
+
+# config
+config.toml
