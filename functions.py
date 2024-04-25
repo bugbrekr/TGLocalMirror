@@ -8,8 +8,6 @@ import toml
 import base64
 import asyncio
 import _thread
-import time
-import threading
 
 class TelegramSessionManager:
     def __init__(self, api_id=None, api_hash=None):
@@ -27,6 +25,8 @@ class TelegramSessionManager:
         )
     def _on_raw_update(self, user_id, c, update, users, chats):
         print(user_id, update)
+        print(users)
+        print(chats)
     def _run_sessions(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -170,3 +170,40 @@ class Server:
             traceback.print_exc(chain=False)
             return False, {"type": "RuntimeError", "traceback": traceback.format_exc(chain=False)}
 
+class Client:
+    def __init__(self, socket_path):
+        self.socket_path = socket_path
+    def _disconnect(self):
+        self.sock.close()
+    def _connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self.socket_path)
+    def _recvall(self, sock, n):
+        data = bytearray()
+        while len(data) < n:
+            packet = sock.recv(n - len(data))
+            if not packet:
+                return None
+            data.extend(packet)
+        return data
+    def _recv_msg(self, sock):
+        raw_msglen = self._recvall(sock, 4)
+        if not raw_msglen:
+            return None
+        msglen = struct.unpack('>I', raw_msglen)[0]
+        return self._recvall(sock, msglen)
+    def _send_msg(self, sock, data):
+        data = struct.pack('>I', len(data)) + data
+        sock.sendall(data)
+        return data
+    def _send(self, data):
+        packed_data = msgpack.dumps(data)
+        self._send_msg(self.sock, packed_data)
+    def _recv(self):
+        packed_data = self._recv_msg(self.sock)
+        if not packed_data: return None
+        data = msgpack.loads(packed_data)
+        return data
+    def send(self, data):
+        self._send(data)
+        return self._recv()
