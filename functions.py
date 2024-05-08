@@ -1,3 +1,4 @@
+import threading
 import traceback
 import socket
 import secrets
@@ -9,6 +10,29 @@ import base64
 import asyncio
 import _thread
 
+USEABLE_UPDATES = [
+    "types.UpdateNewMessage",
+    "types.UpdateDeleteMessages",
+    "types.UpdateChatParticipants",
+    "types.UpdateUserName",
+    "types.UpdateUserPhone",
+    "types.UpdateChannel",
+    "types.UpdateChannelTooLong",
+    "types.UpdateNewChannelMessage",
+    "types.UpdateDeleteChannelMessages",
+    "types.UpdateEditChannelMessage",
+    "types.UpdateEditMessage",
+    "types.UpdatePtsChanged",
+    "types.UpdateDialogPinned",
+    "types.UpdatePinnedDialogs",
+    "types.UpdateMessagePoll",
+    "types.UpdatePeerBlocked",
+    "types.UpdatePinnedMessages",
+    "types.UpdatePinnedChannelMessages",
+    "types.UpdateChat",
+    "types.UpdateUser"
+]
+
 class TelegramSessionManager:
     def __init__(self, api_id=None, api_hash=None):
         with open("config.toml") as f:
@@ -18,15 +42,17 @@ class TelegramSessionManager:
         self.active_sessions = {}
         self.session_add_queue = []
         self._restart_flag = False
+        self.sync_user_id = None
     def _parse_session_data(self, session_string):
         return struct.unpack(
             pyrogram.storage.storage.Storage.SESSION_STRING_FORMAT,
             base64.urlsafe_b64decode(session_string+"==")
         )
-    def _on_raw_update(self, user_id, c, update, users, chats):
-        print(user_id, update)
-        print(users)
-        print(chats)
+    def _on_raw_update(self, user_id:int, c:pyrogram.Client, update:pyrogram.raw.base.Update, users:dict, chats:dict):
+        if update.QUALNAME not in USEABLE_UPDATES:
+            return
+        print(user_id, update.QUALNAME)
+        print(update)
     def _run_sessions(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -68,12 +94,15 @@ class TelegramSessionManager:
     def stop_all_sessions(self):
         for c in self.active_sessions.values():
             c.stop()
-    def initialize_session(self, session_data):
+    def initialize_session(self, session_data, restart:bool=True, sync_user:bool=True):
         user_id = self._parse_session_data(session_data)[4]
         if user_id in self.active_sessions.keys():
             return
         self.session_add_queue.append(session_data)
-        self.restart()
+        if sync_user:
+            self.sync_user_id = user_id
+        if restart:
+            self.restart()
 
 class Server:
     def __init__(self, telegram_manager:TelegramSessionManager, socket_path:str=None):
@@ -87,9 +116,7 @@ class Server:
         self.s_sock.listen(0)
         self.is_client_connected = False
         self.active_client_sock = None
-        
         self.telegram_sessions = {}
-
         self._stop_flag = False
     def _recvall(self, sock, n):
         data = bytearray()
@@ -148,11 +175,15 @@ class Server:
                 print("------------------START CRITICAL RUNTIME ERROR------------------")
                 traceback.print_exc(chain=False)
                 print("-------------------END CRITICAL RUNTIME ERROR-------------------")
-    def run(self):
+    def _run(self):
         while self._stop_flag == False:
             self.wait_for_client()
             if self._stop_flag: return
             self.mainloop()
+    def run(self):
+        self.server_thread = threading.Thread(target=self._run)
+        self.server_thread.start()
+        self.telegram_manager.run()
     def stop(self):
         self._stop_flag = True
         if self.is_client_connected:
@@ -161,6 +192,7 @@ class Server:
             self.is_client_connected = False
         else:
             self.s_sock.shutdown(2)
+        self.server_thread.join()
     def handle_request(self, data):
         try:
             if data["type"] == "login":

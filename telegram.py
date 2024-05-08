@@ -3,6 +3,7 @@ import pickle
 import socket
 import secrets
 import struct
+import base64
 import asyncio
 import traceback
 import toml
@@ -14,7 +15,12 @@ API_ID = config["telegram"]["API_ID"]
 API_HASH = config["telegram"]["API_HASH"]
 
 class TelegramSession:
-    def __init__(self, session_data, session_id, api_id=API_ID, api_hash=API_HASH):
+    def __init__(self, session_data, api_id=API_ID, api_hash=API_HASH):
+        session_id = secrets.token_hex(16)
+        try:
+            session_id = self._parse_session_data(session_data)[4]
+        except:
+            pass
         self.tgs = pyrogram.Client(
             session_id,
             session_string=session_data,
@@ -28,6 +34,11 @@ class TelegramSession:
         )
         self.tgs.start()
         self.meuser = self.tgs.get_me()
+    def _parse_session_data(self, session_string):
+        return struct.unpack(
+            pyrogram.storage.storage.Storage.SESSION_STRING_FORMAT,
+            base64.urlsafe_b64decode(session_string+"==")
+        )
     def _get_session_data(self):
         return self.tgs.export_session_string()
     def close(self):
