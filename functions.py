@@ -312,7 +312,7 @@ def Message_to_dict(msg):
                 "id": pyrogram.utils.get_raw_peer_id(msg.peer_id)
             },
             "date": msg.date,
-            "message": msg.date,
+            "message": msg.message,
             "out": msg.out,
             "mentioned": msg.mentioned,
             "media_unread": msg.media_unread,
