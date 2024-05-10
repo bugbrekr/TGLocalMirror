@@ -303,51 +303,77 @@ def _get_peer_type(peer):
         return "channel"
     return None
 
-def Message_to_dict(msg:pyrogram.raw.types.Message):
-    return {
-        "id": msg.id,
-        "chat": {
-            "type": _get_peer_type(msg.peer_id),
-            "id": pyrogram.utils.get_raw_peer_id(msg.peer_id)
-        },
-        "date": msg.date,
-        "message": msg.date,
-        "out": msg.out,
-        "mentioned": msg.mentioned,
-        "media_unread": msg.media_unread,
-        "silent": msg.silent,
-        "post": msg.post,
-        "from_scheduled": msg.from_scheduled,
-        "pinned": msg.pinned,
-        "noforwards": msg.noforwards,
-        "from": {
-            "type": _get_peer_type(msg.from_id),
-            "id": pyrogram.utils.get_raw_peer_id(msg.from_id)
-        },
-        "fwd_from": {
-            "date": msg.fwd_from.date,
+def Message_to_dict(msg):
+    if isinstance(msg, pyrogram.raw.types.Message):
+        return {
+            "id": msg.id,
+            "chat": {
+                "type": _get_peer_type(msg.peer_id),
+                "id": pyrogram.utils.get_raw_peer_id(msg.peer_id)
+            },
+            "date": msg.date,
+            "message": msg.date,
+            "out": msg.out,
+            "mentioned": msg.mentioned,
+            "media_unread": msg.media_unread,
+            "silent": msg.silent,
+            "post": msg.post,
+            "from_scheduled": msg.from_scheduled,
+            "pinned": msg.pinned,
+            "noforwards": msg.noforwards,
             "from": {
-                "type": _get_peer_type(msg.fwd_from.from_id),
-                "id": pyrogram.utils.get_raw_peer_id(msg.fwd_from.from_id)
+                "type": _get_peer_type(msg.from_id),
+                "id": pyrogram.utils.get_raw_peer_id(msg.from_id)
             },
-            "from_name": msg.from_name,
-            "channel_post": msg.fwd_from.channel_post,
-            "post_author": msg.fwd_from.post_author,
-            "saved_from_peer": {
-                "type": _get_peer_type(msg.fwd_from.saved_from_peer),
-                "id": pyrogram.utils.get_raw_peer_id(msg.fwd_from.saved_from_peer)
+            "fwd_from": {
+                "date": msg.fwd_from.date,
+                "from": {
+                    "type": _get_peer_type(msg.fwd_from.from_id),
+                    "id": pyrogram.utils.get_raw_peer_id(msg.fwd_from.from_id)
+                } if msg.fwd_from.from_id else None,
+                "from_name": msg.fwd_from.from_name,
+                "channel_post": msg.fwd_from.channel_post,
+                "post_author": msg.fwd_from.post_author,
+                "saved_from_peer": {
+                    "type": _get_peer_type(msg.fwd_from.saved_from_peer),
+                    "id": pyrogram.utils.get_raw_peer_id(msg.fwd_from.saved_from_peer)
+                } if msg.fwd_from.saved_from_peer else None,
+                "saved_from_msg_id": msg.fwd_from.saved_from_msg_id
+            } if msg.fwd_from else None,
+            "via_bot_id": msg.via_bot_id,
+            "media": "MEDIA_PLACEHOLDER", # TODO
+            "views": msg.views,
+            "forwards": msg.forwards,
+            "edit_date": msg.edit_date,
+            "post_author": msg.post_author,
+            "grouped_id": msg.grouped_id
+        }
+    if isinstance(msg, pyrogram.raw.types.MessageService):
+        return {
+            "id": msg.id,
+            "chat": {
+                "type": _get_peer_type(msg.peer_id),
+                "id": pyrogram.utils.get_raw_peer_id(msg.peer_id)
             },
-            "saved_from_msg_id": msg.fwd_from.saved_from_msg_id
-        },
-        "via_bot_id": msg.via_bot_id,
-    }
+            "date": msg.date,
+            "action": "PLACEHOLDER", # TODO
+            "out": msg.out,
+            "mentioned": msg.mentioned,
+            "media_unread": msg.media_unread,
+            "silent": msg.silent,
+            "post": msg.post,
+            "from": {
+                "type": _get_peer_type(msg.from_id),
+                "id": pyrogram.utils.get_raw_peer_id(msg.from_id)
+            }
+        }
 
-def Dialog_to_dict(dialog:pyrogram.raw.types.Dialog):
+def Dialog_to_dict(dialog:pyrogram.raw.types.Dialog, top_message:dict):
     peer_id = pyrogram.utils.get_raw_peer_id(dialog.peer)
     return {
         "type": _get_peer_type(dialog.peer),
         "id": peer_id,
-        "top_message": dialog.top_message,
+        "top_message": top_message,
         "read_inbox_max_id": dialog.read_inbox_max_id,
         "read_outbox_max_id": dialog.read_outbox_max_id,
         "unread_count": dialog.unread_count,

@@ -11,5 +11,4 @@ test*.py
 
 # config
 config.toml
-
 db/

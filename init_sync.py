@@ -11,8 +11,8 @@ import time
 uvloop.install()
 
 mongoclient = MongoClient()
-tglg_data = mongoclient["tglg_data"]
-tglg_msgpool = mongoclient["tglg_messagepool"]
+tglm_data = mongoclient["tglm_data"]
+tglm_msgpool = mongoclient["tglm_messagepool"]
 
 def _parse_session_data(session_string):
     return struct.unpack(
@@ -67,7 +67,7 @@ def pre_populate_contact_users(takeout_id):
     ))
     for user in contacts_raw.users:
         _user = functions.User_to_dict(user)
-        tglg_data.users.update_one({"id": _user["id"]}, {"$set": _user}, upsert=True)
+        tglm_data.users.update_one({"id": _user["id"]}, {"$set": _user}, upsert=True)
     return len(contacts_raw.users)
 
 def populate_dialogs_list(takeout_id):
@@ -91,11 +91,11 @@ def populate_dialogs_list(takeout_id):
         dialogs_raw.extend(_dialogs_raw.dialogs)
         last_peer_top_message = [msg for msg in _dialogs_raw.messages if msg.peer_id==_dialogs_raw.dialogs[-1].peer][0]
         offset_date = last_peer_top_message.date
-        messages.update({pyrogram.utils.get_peer_id(msg.peer):msg for msg in _dialogs_raw.messages})
-    import pdb; pdb.set_trace()
+        messages.update({pyrogram.utils.get_peer_id(msg.peer_id):msg for msg in _dialogs_raw.messages})
     for dialog in dialogs_raw:
-        _dialog = functions.Dialog_to_dict(dialog, messages[pyrogram.utils.get_peer_id(dialog.peer)])
-        tglg_data.dialogs.update_one({"id": _dialog["id"]}, {"$set": _dialog}, upsert=True)
+        _top_message = functions.Message_to_dict(messages[pyrogram.utils.get_peer_id(dialog.peer)])
+        _dialog = functions.Dialog_to_dict(dialog, _top_message)
+        tglm_data.dialogs.update_one({"id": _dialog["id"]}, {"$set": _dialog}, upsert=True)
     return len(dialogs_raw)
 
 takeout_id = initiate_takeout_session()
