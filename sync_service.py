@@ -1,5 +1,4 @@
 import functions
-import threading
 import sys
 
 telegram_manager = functions.TelegramSessionManager()
