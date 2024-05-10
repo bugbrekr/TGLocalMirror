@@ -9,6 +9,9 @@ import toml
 import base64
 import asyncio
 import _thread
+import uvloop
+
+uvloop.install()
 
 USEABLE_UPDATES = [
     "types.UpdateNewMessage",
@@ -34,11 +37,14 @@ USEABLE_UPDATES = [
 ]
 
 class TelegramSessionManager:
-    def __init__(self, api_id=None, api_hash=None):
+    def __init__(self):
         with open("config.toml") as f:
             config = toml.loads(f.read())
-        self.API_ID = api_id if api_id else config["telegram"]["API_ID"]
-        self.API_HASH = api_hash if api_hash else config["telegram"]["API_HASH"]
+        self.API_ID = config["telegram"]["API_ID"]
+        self.API_HASH = config["telegram"]["API_HASH"]
+        self.MAX_CONCURRENT_DOWNLOADS = config["telegram"]["MAX_CONCURRENT_DOWNLOADS"]
+        self.DEVICE_MODEL = config["tglocalgateway"]["DEVICE_MODEL"]
+        self.APP_VERSION = config["tglocalgateway"]["APP_VERSION"]
         self.active_sessions = {}
         self.session_add_queue = []
         self._restart_flag = False
@@ -65,8 +71,9 @@ class TelegramSessionManager:
                 api_hash=self.API_HASH,
                 in_memory=True,
                 hide_password=True,
-                device_model="TGLocalGateway",
-                app_version="TGLocalGateway 1.0"
+                device_model=self.DEVICE_MODEL,
+                app_version=self.APP_VERSION,
+                max_concurrent_transmissions=self.MAX_CONCURRENT_DOWNLOADS
             )
             c.add_handler(pyrogram.handlers.RawUpdateHandler(
                 lambda client, update, users, chats: 
@@ -239,3 +246,50 @@ class Client:
     def send(self, data):
         self._send(data)
         return self._recv()
+
+def User_to_dict(user:pyrogram.raw.types.User):
+    usernames = []
+    for username in user.usernames:
+        username.append({
+                "username": username.username,
+                "editable": username.editable,
+                "active": username.active
+            }
+        )
+    return {
+        "id": user.id,
+        "is_self": user.is_self,
+        "contact": user.contact,
+        "mutual_contact": user.mutual_contact,
+        "deleted": user.deleted,
+        "bot": user.bot,
+        "bot_chat_history": user.bot_chat_history,
+        "bot_nochats": user.bot_nochats,
+        "bot_inline_geo": user.bot_inline_geo,
+        "bot_inline_placeholder": user.bot_inline_placeholder,
+        "bot_attach_menu": user.bot_attach_menu,
+        "bot_can_edit": user.bot_can_edit,
+        "bot_info_version": user.bot_info_version,
+        "verified": user.verified,
+        "restricted": user.restricted,
+        "restriction_reason": user.restriction_reason,
+        "min": user.min,
+        "apply_min_photo": user.apply_min_photo,
+        "support": user.support,
+        "scam": user.scam,
+        "fake": user.fake,
+        "premium": user.premium,
+        "access_hash": user.access_hash,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "username": user.username,
+        "phone": user.phone,
+        "photo": {
+            "photo_id": user.photo.photo_id,
+            "dc_id": user.photo.dc_id,
+            "has_video": user.photo.has_video,
+            "stripped_thumb": user.photo.stripped_thumb
+        } if user.photo else None,
+        "lang_code": user.lang_code,
+        "usernames": usernames
+    }
