@@ -67,7 +67,7 @@ def pre_populate_contact_users(takeout_id):
             pyrogram.raw.functions.contacts.GetContacts(hash=0)
     ))
     for user in contacts_raw.users:
-        _user = helpers.User_to_dict(user)
+        _user = helpers.User(user)
         tglm_data.users.update_one({"id": _user["id"]}, {"$set": _user}, upsert=True)
     return len(contacts_raw.users)
 
@@ -94,8 +94,8 @@ def populate_dialogs_list(takeout_id):
         offset_date = last_peer_top_message.date
         messages.update({pyrogram.utils.get_peer_id(msg.peer_id):msg for msg in _dialogs_raw.messages})
     for dialog in dialogs_raw:
-        _dialog = helpers.Dialog_to_dict(dialog, messages[pyrogram.utils.get_peer_id(dialog.peer)])
-        tglm_data.dialogs.update_one({"id": _dialog["id"]}, {"$set": _dialog}, upsert=True)
+        _dialog = helpers.Dialog(dialog, messages[pyrogram.utils.get_peer_id(dialog.peer)])
+        tglm_data.dialogs.update_one({"peer": _dialog["peer"]}, {"$set": _dialog}, upsert=True)
     return len(dialogs_raw)
 
 takeout_id = initiate_takeout_session()

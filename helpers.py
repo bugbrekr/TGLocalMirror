@@ -1,3 +1,4 @@
+import json
 import pyrogram
 
 def Peer(peer:pyrogram.raw.base.Peer) -> dict:
@@ -81,15 +82,6 @@ def User(user:pyrogram.raw.base.User) -> dict:
             "id": user.id
         }
 
-def _get_peer_type(peer) -> str:
-    if isinstance(peer, pyrogram.raw.types.PeerUser):
-        return "user"
-    if isinstance(peer, pyrogram.raw.types.PeerChat):
-        return "chat"
-    if isinstance(peer, pyrogram.raw.types.PeerChannel):
-        return "channel"
-    return None
-
 def InputStickerSet(sticker:pyrogram.raw.base.InputStickerSet) -> dict:
     if isinstance(sticker, pyrogram.raw.types.InputStickerSetAnimatedEmoji):
         return {
@@ -136,6 +128,16 @@ def InputStickerSet(sticker:pyrogram.raw.base.InputStickerSet) -> dict:
             "short_name": sticker.short_name
         }
 
+def MaskCoords(coords:pyrogram.raw.base.MaskCoords) -> dict:
+    if isinstance(coords, pyrogram.raw.types.MaskCoords):
+        return {
+                "_": "mask_coords.mask_coords",
+                "n": coords.n,
+                "x": coords.x,
+                "y": coords.y,
+                "zoom": coords.zoom
+            }
+
 def DocumentAttribute(attr:pyrogram.raw.base.DocumentAttribute) -> dict:
     if isinstance(attr, pyrogram.raw.types.DocumentAttributeAnimated):
         return {
@@ -176,13 +178,7 @@ def DocumentAttribute(attr:pyrogram.raw.base.DocumentAttribute) -> dict:
             "_": "document.attribute.sticker",
             "stickerset": InputStickerSet(attr.stickerset),
             "mask": attr.mask,
-            "mask_coords": {
-                "_": "mask_coords.mask_coords",
-                "n": attr.mask_coords.n,
-                "x": attr.mask_coords.x,
-                "y": attr.mask_coords.y,
-                "zoom": attr.mask_coords.zoom
-            }
+            "mask_coords": MaskCoords(attr.mask_coords)
         }
     if isinstance(attr, pyrogram.raw.types.DocumentAttributeVideo):
         return {
@@ -394,6 +390,9 @@ def PollResults(results:pyrogram.raw.base.PollResults) -> dict:
             "solution": results.solution
         }
 
+def PageBlock(block:pyrogram.raw.base.PageBlock) -> dict:
+    return json.loads(str(block)) if block else None
+
 def Page(page:pyrogram.raw.base.Page) -> dict:
     if isinstance(page, pyrogram.raw.types.Page):
         return {
@@ -527,12 +526,11 @@ def MessageMedia(media:pyrogram.raw.base.MessageMedia) -> dict:
             "emoticon": media.emoticon
         }
     if isinstance(media, pyrogram.raw.types.MessageMediaDocument):
-        document = Document()
         return {
             "_": "media.document",
             "nopremium": media.nopremium,
             "spoiler": media.spoiler,
-            "document": document,
+            "document": Document(media.document),
             "ttl_seconds": media.ttl_seconds
         }
     if isinstance(media, pyrogram.raw.types.MessageMediaEmpty):
@@ -583,7 +581,7 @@ def MessageMedia(media:pyrogram.raw.base.MessageMedia) -> dict:
     if isinstance(media, pyrogram.raw.types.MessageMediaPhoto):
         return {
             "_": "media.photo",
-            "spoiler": media.spoler,
+            "spoiler": media.spoiler,
             "photo": Photo(media.photo),
             "ttl_seconds": media.ttl_seconds
         }
@@ -895,6 +893,9 @@ def MessageReactions(reactions:pyrogram.raw.base.MessageReactions) -> dict:
             "recent_reactions": [MessagePeerReaction(reaction) for reaction in reactions.recent_reactions]
         }
 
+def ReplyMarkup(markup:pyrogram.raw.base.ReplyMarkup) -> dict:
+    return json.loads(str(markup)) if markup else None
+
 def Message(msg:pyrogram.raw.base.Message) -> dict:
     if isinstance(msg, pyrogram.raw.types.Message):
         return {
@@ -952,6 +953,245 @@ def Message(msg:pyrogram.raw.base.Message) -> dict:
             "_": "message.empty",
             "id": msg.id,
             "peer_id": Peer(msg.peer_id)
+        }
+
+def BotApp(bot:pyrogram.raw.base.BotApp) -> dict:
+    if isinstance(bot, pyrogram.raw.types.BotApp):
+        return {
+            "_": "bot_app.bot_app",
+            "id": bot.id,
+            "access_hash": bot.access_hash,
+            "short_name": bot.short_name,
+            "title": bot.title,
+            "description": bot.description,
+            "photo": Photo(bot.photo),
+            "hash": bot.hash,
+            "document": Document(bot.document)
+        }
+    if isinstance(bot, pyrogram.raw.types.BotAppNotModified):
+        return {
+            "_": "bot_app.not_modified"
+        }
+
+def InputGroupCall(call:pyrogram.raw.base.InputGroupCall) -> dict:
+    if isinstance(call, pyrogram.raw.types.InputGroupCall):
+        return {
+            "_": "input_group_call.input_group_call",
+            "id": call.id,
+            "access_hash": call.access_hash
+        }
+
+def MessageAction(action:pyrogram.raw.base.MessageAction) -> dict:
+    if isinstance(action, pyrogram.raw.types.MessageActionBotAllowed):
+        return {
+            "_": "message_action.bot_allowed",
+            "attach_menu": action.attach_menu,
+            "domain": action.domain,
+            "app": BotApp(action.app)
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChannelCreate):
+        return {
+            "_": "message_action.channel_create",
+            "title": action.title
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChannelMigrateFrom):
+        return {
+            "_": "message_action.channel_migrate_from",
+            "title": action.title,
+            "chat_id": action.chat_id
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatAddUser):
+        return {
+            "_": "message_action.chat_add_user",
+            "users": action.users
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatCreate):
+        return {
+            "_": "message_action.chat_create",
+            "title": action.title,
+            "users": action.users
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatDeletePhoto):
+        return {
+            "_": "message_action.chat_delete_photo",
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatDeleteUser):
+        return {
+            "_": "message_action.chat_delete_user",
+            "user_id": action.user_id
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatEditPhoto):
+        return {
+            "_": "message_action.chat_edit_photo",
+            "photo": Photo(action.photo)
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatEditTitle):
+        return {
+            "_": "message_action.chat_edit_title",
+            "title": action.title
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatJoinedByLink):
+        return {
+            "_": "message_action.chat_joined_by_link",
+            "inviter_id": action.inviter_id
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatJoinedByRequest):
+        return {
+            "_": "message_action.chat_joined_by_request"
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionChatMigrateTo):
+        return {
+            "_": "message_action.chat_migrate_to",
+            "channel_id": action.channel_id
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionContactSignUp):
+        return {
+            "_": "message_action.contact_sign_up"
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionCustomAction):
+        return {
+            "_": "message_action.custom_action",
+            "message": action.message
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionEmpty):
+        return {
+            "_": "message_action.empty"
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionGameScore):
+        return {
+            "_": "message_action.game_score",
+            "game_id": action.game_id,
+            "score": action.score
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionGeoProximityReached):
+        return {
+            "_": "message_action.geo_proximity_reached",
+            "from_id": Peer(action.from_id),
+            "to_id": Peer(action.to_id),
+            "distance": action.distance
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionGiftPremium):
+        return {
+            "_": "message_action.gift_premium",
+            "currency": action.currency,
+            "amount": action.amount,
+            "months": action.months,
+            "crypto_currency": action.crypto_currency,
+            "crypto_amount": action.crypto_amount
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionGroupCall):
+        return {
+            "_": "message_action.group_call",
+            "call": InputGroupCall(action.call),
+            "duration": action.duration
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionGroupCallScheduled):
+        return {
+            "_": "message_action.group_call_scheduled",
+            "call": InputGroupCall(action.call),
+            "schedule_date": action.schedule_date
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionHistoryClear):
+        return {
+            "_": "message_action.history_clear"
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionInviteToGroupCall):
+        return {
+            "_": "message_action.invite_to_group_call",
+            "call": InputGroupCall(action.call),
+            "users": action.users
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionPaymentSent):
+        return {
+            "_": "message_action.payment_sent",
+            "currency": action.currency,
+            "total_amount": action.total_amount,
+            "recurring_init": action.recurring_init,
+            "recurring_used": action.recurring_used,
+            "invoice_slug": action.invoice_slug
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionPaymentSentMe):
+        return {
+            "_": "message_action.payment_sent_me",
+            "currency": action.currency,
+            "total_amount": action.total_amount,
+            "payload": action.payload,
+            "charge": PaymentCharge(action.charge),
+            "recurring_init": action.recurring_init,
+            "recurring_used": action.recurring_used,
+            "info": PaymentRequestedInfo(action.info),
+            "shipping_option_id": action.shipping_action_id
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionPhoneCall):
+        return {
+            "_": "message_action.phone_call",
+            "call_id": action.call_id,
+            "video": action.video,
+            "reason": PhoneCallDiscardReason(action.reason),
+            "duration": action.duration
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionPinMessage):
+        return {
+            "_": "message_action.pin_message"
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionRequestedPeer):
+        return {
+            "_": "message_action.requested_peer",
+            "button_id": action.button_id,
+            "peer": Peer(action.peer)
+        }
+    if isinstance(action, pyrogram.raw.types.MessageActionScreenshotTaken):
+        return {
+            "_": "message_action.screenshot_taken"
+        }
+    return json.loads(str(action)) if action else None
+
+def PhoneCallDiscardReason(reason:pyrogram.raw.base.PhoneCallDiscardReason) -> dict:
+    if isinstance(reason, pyrogram.raw.types.PhoneCallDiscardReasonBusy):
+        return {
+            "_": "phone_call_discard_reason.busy"
+        }
+    if isinstance(reason, pyrogram.raw.types.PhoneCallDiscardReasonDisconnect):
+        return {
+            "_": "phone_call_discard_reason.disconnect"
+        }
+    if isinstance(reason, pyrogram.raw.types.PhoneCallDiscardReasonHangup):
+        return {
+            "_": "phone_call_discard_reason.hangup"
+        }
+    if isinstance(reason, pyrogram.raw.types.PhoneCallDiscardReasonMissed):
+        return {
+            "_": "phone_call_discard_reason.missed"
+        }
+
+def PaymentCharge(charge:pyrogram.raw.base.PaymentCharge) -> dict:
+    if isinstance(charge, pyrogram.raw.types.PaymentCharge):
+        return {
+            "_": "payment_charge.payment_charge",
+            "id": charge.id,
+            "provider_charge_id": charge.provider_charge_id
+        }
+
+def PaymentRequestedInfo(info:pyrogram.raw.base.PaymentRequestedInfo) -> dict:
+    if isinstance(info, pyrogram.raw.types.PaymentRequestedInfo):
+        return {
+            "_": "payment_requested_info.payment_requested_info",
+            "name": info.name,
+            "phone": info.phone,
+            "email": info.email,
+            "shipping_address": PostAddress(info.shipping_address)
+        }
+
+def PostAddress(addr:pyrogram.raw.base.PostAddress) -> dict:
+    if isinstance(addr, pyrogram.raw.types.PostAddress):
+        return {
+            "_": "post_address.post_address",
+            "street_line1": addr.street_line1,
+            "street_line2": addr.street_line2,
+            "city": addr.city,
+            "state": addr.state,
+            "country_iso2": addr.country_iso2,
+            "post_code": addr.post_code
         }
 
 def ChatPhoto(photo:pyrogram.raw.base.ChatPhoto) -> dict:
