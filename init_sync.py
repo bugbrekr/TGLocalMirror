@@ -214,7 +214,8 @@ def save_history_of_all_cached_dialogs(takeout_id):
         # save_history_of_dialog(takeout_id, peer, offset_id=dialog["top_message"]["id"])
         save_history_of_dialog(takeout_id, peer, resume=True)
 
-takeout_id = initiate_takeout_session()
-print(pre_populate_contact_users(takeout_id))
-print(populate_dialogs_list(takeout_id))
-save_history_of_all_cached_dialogs(takeout_id)
+if __name__=="__main__":
+    takeout_id = initiate_takeout_session()
+    print(pre_populate_contact_users(takeout_id))
+    print(populate_dialogs_list(takeout_id))
+    save_history_of_all_cached_dialogs(takeout_id)
