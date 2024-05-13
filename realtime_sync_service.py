@@ -19,6 +19,9 @@ server = functions.Server(telegram_manager)
 with open("db/socket_path", "w") as f:
     f.write(server.socket_path)
 
+@telegram_manager.on_raw_update()
+def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyrogram.raw.base.Update, users:dict, chats:dict):
+    print(update.QUALNAME)
 
 server.run()
 print("TG session manager stopped.")

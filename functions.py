@@ -49,16 +49,19 @@ class TelegramSessionManager:
         self.session_add_queue = []
         self._restart_flag = False
         self.sync_user_id = None
+        self._raw_update_func = None
     def _parse_session_data(self, session_string):
         return struct.unpack(
             pyrogram.storage.storage.Storage.SESSION_STRING_FORMAT,
             base64.urlsafe_b64decode(session_string+"==")
         )
+    def on_raw_update(self, func):
+        self._raw_update_func = func
     def _on_raw_update(self, user_id:int, c:pyrogram.Client, update:pyrogram.raw.base.Update, users:dict, chats:dict):
         if update.QUALNAME not in USEABLE_UPDATES:
             return
-        print(user_id, update.QUALNAME)
-        print(update)
+        if self.on_raw_update:
+            self.on_raw_update(user_id, c, update, users, chats)
     def _run_sessions(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

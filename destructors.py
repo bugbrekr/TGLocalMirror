@@ -82,6 +82,9 @@ def User(user:pyrogram.raw.base.User) -> dict:
             "id": user.id
         }
 
+def Chat(chat:pyrogram.raw.base.Chat) -> dict:
+    return json.loads(str(chat)) if chat else None
+
 def InputStickerSet(sticker:pyrogram.raw.base.InputStickerSet) -> dict:
     if isinstance(sticker, pyrogram.raw.types.InputStickerSetAnimatedEmoji):
         return {
