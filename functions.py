@@ -61,7 +61,7 @@ class TelegramSessionManager:
         if update.QUALNAME not in USEABLE_UPDATES:
             return
         if self.on_raw_update:
-            self.on_raw_update(user_id, c, update, users, chats)
+            self._raw_update_func(user_id, c, update, users, chats)
     def _run_sessions(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -249,3 +249,32 @@ class Client:
     def send(self, data):
         self._send(data)
         return self._recv()
+
+def _peer_to_db_name(peer):
+    match peer["_"]:
+        case "peer.channel":
+            return "channel_"+str(peer["channel_id"])
+        case "peer.chat":
+            return "chat_"+str(peer["chat_id"])
+        case "peer.user":
+            return "user_"+str(peer["user_id"])
+ 
+def _db_name_to_peer(name):
+    peer_type, peer_id = name.split("_")
+    peer_id = int(peer_id)
+    match peer_type:
+        case "channel":
+            return {
+                "_": "peer.channel",
+                "channel_id": peer_id
+            }
+        case "chat":
+            return {
+                "_": "peer.chat",
+                "chat_id": peer_id
+            }
+        case "user":
+            return {
+                "_": "peer.user",
+                "user_id": peer_id
+            }

@@ -2,7 +2,6 @@ import pyrogram
 import struct
 import base64
 import toml
-from typing import List
 from pymongo import MongoClient, UpdateOne
 import pymongo
 import uvloop
@@ -10,12 +9,15 @@ import time
 import constructors
 import destructors
 import tqdm
+from functions import _peer_to_db_name, _db_name_to_peer
 
 uvloop.install()
 
 mongoclient = MongoClient()
 tglm_data = mongoclient["tglm_data"]
 tglm_msgpool = mongoclient["tglm_messagepool"]
+
+TQDM_ENABLE = True
 
 def _parse_session_data(session_string):
     return struct.unpack(
@@ -32,7 +34,7 @@ MAX_CONCURRENT_DOWNLOADS = config["telegram"]["MAX_CONCURRENT_DOWNLOADS"]
 DEVICE_MODEL = config["tglocalgateway"]["DEVICE_MODEL"]
 APP_VERSION = config["tglocalgateway"]["APP_VERSION"]
 
-with open("db/user.dat") as f:
+with open("db/takeout_session.dat") as f:
     session_data = f.read()
 
 user_id = _parse_session_data(session_data)
@@ -51,35 +53,6 @@ c = pyrogram.Client(
 )
 
 c.start()
-
-def _peer_to_db_name(peer):
-    match peer["_"]:
-        case "peer.channel":
-            return "channel_"+str(peer["channel_id"])
-        case "peer.chat":
-            return "chat_"+str(peer["chat_id"])
-        case "peer.user":
-            return "user_"+str(peer["user_id"])
- 
-def _db_name_to_peer(name):
-    peer_type, peer_id = name.split("_")
-    peer_id = int(peer_id)
-    match peer_type:
-        case "channel":
-            return {
-                "_": "peer.channel",
-                "channel_id": peer_id
-            }
-        case "chat":
-            return {
-                "_": "peer.chat",
-                "chat_id": peer_id
-            }
-        case "user":
-            return {
-                "_": "peer.user",
-                "user_id": peer_id
-            }
 
 def initiate_takeout_session():
     return c.invoke(pyrogram.raw.functions.account.InitTakeoutSession(
@@ -154,7 +127,7 @@ def populate_dialogs_list(takeout_id):
 def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
     add_offset = 0
     _peer = constructors.InputPeer(peer)
-    pbar = tqdm.tqdm(total=100, position=1, leave=False)
+    pbar = tqdm.tqdm(total=100, position=1, leave=False, disable=not TQDM_ENABLE)
     msgpool = tglm_msgpool[_peer_to_db_name(peer)]
     msgcounter = 0
     offset_date = int(time.time())
@@ -167,7 +140,8 @@ def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
         msgcounter = msgpool.count_documents({})
     except pymongo.errors.OperationFailure:
         msgpool.create_index([('id', pymongo.DESCENDING)], name='id', unique=True)
-    print("MSGCOUNTER:", msgcounter)
+    if offset_id != -1:
+        add_offset = -1
     while True:
         msgs = c.invoke(pyrogram.raw.functions.InvokeWithTakeout(takeout_id=takeout_id, query=
                 pyrogram.raw.functions.messages.GetHistory(
@@ -186,6 +160,8 @@ def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
             # if first time caching, then reaches end of list OR if second time caching with resume=False, and runs into the end of a deleted chat
             break
         if msgpool.count_documents({"id": _messages[-1]["id"]}) == 1:
+            operations = [UpdateOne({"id": msg["id"]}, {"$set": msg}, upsert=True) for msg in _messages]
+            msgpool.bulk_write(operations)
             # if not first time caching, and have caught up with existing list
             break
         operations = [UpdateOne({"id": msg["id"]}, {"$set": msg}, upsert=True) for msg in _messages]
@@ -202,20 +178,25 @@ def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
     return msgs.count if not isinstance(msgs, pyrogram.raw.types.messages.Messages) else len(msgs.messages)
 
 def save_history_of_all_cached_dialogs(takeout_id):
-    for dialog in (pbar := tqdm.tqdm(tglm_data.dialogs.find(), position=0)):
+    for dialog in (pbar := tqdm.tqdm(tglm_data.dialogs.find(), position=0, total=tglm_data.dialogs.count_documents({}), disable=not TQDM_ENABLE)):
         peer = dialog["peer"]
         match peer["_"]:
             case "peer.user":
                 peer["access_hash"] = list(tglm_data.users.find({"id": peer["user_id"]}))[0]["access_hash"]
             case "peer.channel":
                 peer["access_hash"] = list(tglm_data.chats.find({"id": peer["channel_id"]}))[0]["access_hash"]
-        dialog = list(tglm_data.dialogs.find({"peer": dialog["peer"]}))[0] # to ensure latest top_message is used
+        # dialog = list(tglm_data.dialogs.find({"peer": dialog["peer"]}))[0] # to ensure latest top_message is used
         # pbar.set_description(f"Caching first sweep")
-        # save_history_of_dialog(takeout_id, peer, offset_id=dialog["top_message"]["id"])
-        save_history_of_dialog(takeout_id, peer, resume=True)
+        save_history_of_dialog(takeout_id, peer, offset_id=dialog["top_message"]["id"])
+        # save_history_of_dialog(takeout_id, peer)
 
 if __name__=="__main__":
+    print("initiating sync...")
     takeout_id = initiate_takeout_session()
-    print(pre_populate_contact_users(takeout_id))
-    print(populate_dialogs_list(takeout_id))
+    print("populating users...")
+    pre_populate_contact_users(takeout_id)
+    print("populating dialogs...")
+    populate_dialogs_list(takeout_id)
+    print("fetching messages...")
     save_history_of_all_cached_dialogs(takeout_id)
+    print("done.")
