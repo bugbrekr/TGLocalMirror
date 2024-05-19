@@ -914,7 +914,7 @@ def Message(msg:pyrogram.raw.base.Message) -> dict:
             "post": msg.post,
             "from_scheduled": msg.from_scheduled,
             "legacy": msg.legacy,
-            "edit_hide": msg.edit_date,
+            "edit_hide": msg.edit_hide,
             "pinned": msg.pinned,
             "noforwards": msg.noforwards,
             "from_id": Peer(msg.from_id),
@@ -1247,4 +1247,16 @@ def Dialog(dialog:pyrogram.raw.base.Dialog, top_message:pyrogram.raw.base.Messag
             "unread_muted_messages_count": dialog.unread_muted_messages_count,
             "unread_unmuted_messages_count": dialog.unread_unmuted_messages_count,
             "pinned": dialog.pinned
+        }
+
+def DialogPeer(peer:pyrogram.raw.base.DialogPeer) -> dict:
+    if isinstance(peer, pyrogram.raw.types.DialogPeer):
+        return {
+            "_": "dialog_peer.dialog_peer",
+            "peer": Peer(peer.peer)
+        }
+    if isinstance(peer, pyrogram.raw.types.DialogPeerFolder):
+        return {
+            "_": "dialog_peer.folder",
+            "folder_id": peer.folder_id
         }
