@@ -16,24 +16,25 @@ uvloop.install()
 USEABLE_UPDATES = [
     "types.UpdateNewMessage",
     "types.UpdateDeleteMessages",
-    "types.UpdateChatParticipants",
-    "types.UpdateUserName",
-    "types.UpdateUserPhone",
-    "types.UpdateChannel",
-    "types.UpdateChannelTooLong",
+    "types.UpdateEditMessage", # TODO
     "types.UpdateNewChannelMessage",
     "types.UpdateDeleteChannelMessages",
-    "types.UpdateEditChannelMessage",
-    "types.UpdateEditMessage",
-    "types.UpdatePtsChanged",
+    "types.UpdateEditChannelMessage", # TODO
+    "types.UpdateChatParticipants", # TODO
+    "types.UpdateUserName",
+    "types.UpdateUserPhone",
     "types.UpdateDialogPinned",
     "types.UpdatePinnedDialogs",
-    "types.UpdateMessagePoll",
-    "types.UpdatePeerBlocked",
+    "types.UpdateMessagePoll", # TODO
     "types.UpdatePinnedMessages",
     "types.UpdatePinnedChannelMessages",
-    "types.UpdateChat",
-    "types.UpdateUser"
+    "types.UpdateReadHistoryInbox",
+    "types.UpdateReadHistoryOutbox",
+    "types.UpdateReadChannelInbox",
+    "types.UpdateReadChannelOutbox",
+    "types.UpdateDialogUnreadMark",
+    "types.UpdateChannel", # auto-handled
+    "types.UpdateChat" # auto-handled
 ]
 
 class TelegramSessionManager:

@@ -170,25 +170,19 @@ def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
         pbar.total = msgs.count if not isinstance(msgs, pyrogram.raw.types.messages.Messages) else len(msgs.messages)
         pbar.refresh()
         pbar.update(msgcounter-pbar.n)
-        # import pdb; pdb.set_trace()
-        # if msgcounter >= pbar.total:
-        #     break
         add_offset += len(msgs.messages)
     pbar.close()
     return msgs.count if not isinstance(msgs, pyrogram.raw.types.messages.Messages) else len(msgs.messages)
 
 def save_history_of_all_cached_dialogs(takeout_id):
-    for dialog in (pbar := tqdm.tqdm(tglm_data.dialogs.find(), position=0, total=tglm_data.dialogs.count_documents({}), disable=not TQDM_ENABLE)):
+    for dialog in (pbar := tqdm.tqdm(list(tglm_data.dialogs.find({})), position=0, total=tglm_data.dialogs.count_documents({}), disable=not TQDM_ENABLE)):
         peer = dialog["peer"]
         match peer["_"]:
             case "peer.user":
                 peer["access_hash"] = list(tglm_data.users.find({"id": peer["user_id"]}))[0]["access_hash"]
             case "peer.channel":
                 peer["access_hash"] = list(tglm_data.chats.find({"id": peer["channel_id"]}))[0]["access_hash"]
-        # dialog = list(tglm_data.dialogs.find({"peer": dialog["peer"]}))[0] # to ensure latest top_message is used
-        # pbar.set_description(f"Caching first sweep")
         save_history_of_dialog(takeout_id, peer, offset_id=dialog["top_message"]["id"])
-        # save_history_of_dialog(takeout_id, peer)
 
 if __name__=="__main__":
     print("initiating sync...")

@@ -46,6 +46,84 @@ def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyr
             message = destructors.Message(update.message)
             db_peer = _peer_to_db_name(message["peer_id"])
             tglm_msgpool[db_peer].insert_one(message)
+            tglm_data.dialogs.update_one({"peer": message["peer_id"]}, {"$set": {"top_message": message}})
+        case "types.UpdateNewChannelMessage":
+            message = destructors.Message(update.message)
+            db_peer = _peer_to_db_name(message["peer_id"])
+            tglm_msgpool[db_peer].insert_one(message)
+            tglm_data.dialogs.update_one({"peer": message["peer_id"]}, {"$set": {"top_message": message}})
+        case "types.UpdateDeleteMessages":
+            _messages = update.messages
+            deleted_msgs = []
+            for chat in tglm_msgpool.list_collection_names():
+                deleted_msgs.extend(list(tglm_msgpool[chat].find({"id": {"$in": _messages}})))
+                tglm_msgpool[chat].bulk_write([UpdateOne({"id": msg}, {"$set": {"deleted": True}}, upsert=True) for msg in _messages])
+            tglm_data.deleted_messages.insert_many(deleted_msgs)
+        case "types.UpdateDeleteChannelMessages":
+            _messages = update.messages
+            deleted_msgs = []
+            chat = f"channel_{update.channel_id}"
+            deleted_msgs.extend(list(tglm_msgpool[chat].find({"id": {"$in": _messages}})))
+            tglm_msgpool[chat].bulk_write([UpdateOne({"id": msg}, {"$set": {"deleted": True}}, upsert=True) for msg in _messages])
+            tglm_data.deleted_messages.insert_many(deleted_msgs)
+        case "types.UpdateEditMessage":
+            msg = destructors.Message(update.message)
+            db_peer = functions._peer_to_db_name(msg["peer_id"])
+            prev_msg = tglm_msgpool[db_peer].find_one({"id": msg["id"]})
+            history_block = {
+                "message": prev_msg["message"],
+                "media": prev_msg["media"],
+                "reply_markup": prev_msg["reply_markup"],
+                "entities": prev_msg["entities"],
+                "date": prev_msg["date"]
+            }
+            if isinstance(msg.get("history"), list):
+                msg["history"] = prev_msg["history"].copy()
+            else:
+                msg["history"] = []
+            msg["history"].append(history_block)
+            tglm_msgpool[db_peer].update_one({"id": msg["id"]}, {"$set": msg}, upsert=True)
+            tglm_data.dialogs.update_one({"peer": msg["peer_id"]}, {"$set": {"top_message": msg}})
+        case "types.UpdateReadHistoryInbox":
+            peer = destructors.Peer(update.peer)
+            max_id = update.max_id
+            still_unread_count = update.still_unread_count
+            tglm_data.dialogs.update_one({"peer": peer}, {"$set": {"read_inbox_max_id": max_id, "unread_count": still_unread_count}})
+        case "types.UpdateReadHistoryOutbox":
+            peer = destructors.Peer(update.peer)
+            max_id = update.max_id
+            tglm_data.dialogs.update_one({"peer": peer}, {"$set": {"read_outbox_max_id": max_id}})
+        case "types.UpdateDialogUnreadMark":
+            peer = destructors.DialogPeer(update.peer).get("peer")
+            if not peer: return
+            tglm_data.dialogs.update_one({"peer": peer}, {"$set": {"unread_mark": update.unread}})
+        case "types.UpdateUserName":
+            usernames = [destructors.Username(username) for username in update.usernames]
+            user_id = update.user_id
+            first_name = update.first_name        
+            last_name = update.last_name
+            tglm_data.users.update_one({"id": user_id}, {"$set": {"first_name": first_name, "last_name": last_name, "usernames": usernames}})
+        case "types.UpdateUserPhone":
+            user_id = update.user_id
+            phone = update.phone
+            tglm_data.users.update_one({"id": user_id}, {"$set": {"phone": phone}})
+        case "types.UpdateDialogPinned":
+            if update.folder_id: return
+            peer = destructors.DialogPeer(update.peer).get("peer")
+            pinned = update.pinned
+            tglm_data.dialogs.update_one({"peer": peer}, {"$set": {"pinned": pinned}})
+        case "types.UpdatePinnedMessages":
+            peer = destructors.Peer(update.peer)
+            db_peer = functions._peer_to_db_name(peer)
+            pinned = update.pinned
+            if pinned==None: return
+            tglm_msgpool[db_peer].bulk_write([UpdateOne({"id": msg}, {"$set": {"pinned": pinned}}, upsert=True) for msg in update.messages])
+        case "types.UpdatePinnedChannelMessages":
+            channel_id = update.channel_id
+            db_peer = f"channel_{channel_id}"
+            pinned = update.pinned
+            if pinned==None: return
+            tglm_msgpool[db_peer].bulk_write([UpdateOne({"id": msg}, {"$set": {"pinned": pinned}}, upsert=True) for msg in update.messages])
 
 if __name__=="__main__":
     server.run()
