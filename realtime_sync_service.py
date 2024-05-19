@@ -40,7 +40,6 @@ def update_chats(chats_list):
 def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyrogram.raw.base.Update, users:dict, chats:dict):
     update_users(users.values())
     update_chats(chats.values())
-    print(update.QUALNAME)
     match update.QUALNAME:
         case "types.UpdateNewMessage":
             message = destructors.Message(update.message)
