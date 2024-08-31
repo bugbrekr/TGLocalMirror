@@ -17,7 +17,7 @@ mongoclient = MongoClient()
 tglm_data = mongoclient["tglm_data"]
 tglm_msgpool = mongoclient["tglm_messagepool"]
 
-TQDM_ENABLE = True
+TQDM_ENABLE = False
 
 def _parse_session_data(session_string):
     return struct.unpack(
@@ -143,18 +143,21 @@ def save_history_of_dialog(takeout_id, peer, resume=False, offset_id=-1):
     if offset_id != -1:
         add_offset = -1
     while True:
-        msgs = c.invoke(pyrogram.raw.functions.InvokeWithTakeout(takeout_id=takeout_id, query=
-                pyrogram.raw.functions.messages.GetHistory(
-                    peer=_peer,
-                    offset_id=offset_id,
-                    offset_date=offset_date,
-                    add_offset=add_offset,
-                    limit=100,
-                    max_id=-1,
-                    min_id=-1,
-                    hash=0
-                )
-        ))
+        try:
+            msgs = c.invoke(pyrogram.raw.functions.InvokeWithTakeout(takeout_id=takeout_id, query=
+                    pyrogram.raw.functions.messages.GetHistory(
+                        peer=_peer,
+                        offset_id=offset_id,
+                        offset_date=offset_date,
+                        add_offset=add_offset,
+                        limit=100,
+                        max_id=-1,
+                        min_id=-1,
+                        hash=0
+                    )
+            ))
+        except pyrogram.errors.exceptions.not_acceptable_406.ChannelPrivate:
+            return
         _messages = [destructors.Message(msg) for msg in msgs.messages]
         if len(_messages) == 0:
             # if first time caching, then reaches end of list OR if second time caching with resume=False, and runs into the end of a deleted chat

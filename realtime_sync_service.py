@@ -56,7 +56,8 @@ def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyr
             deleted_msgs = []
             for chat in tglm_msgpool.list_collection_names():
                 deleted_msgs.extend(list(tglm_msgpool[chat].find({"id": {"$in": _messages}})))
-                tglm_msgpool[chat].bulk_write([UpdateOne({"id": msg}, {"$set": {"deleted": True}}, upsert=True) for msg in _messages])
+                instructions = [UpdateOne({"id": msg}, {"$set": {"deleted": True}}, upsert=True) for msg in _messages]
+                tglm_msgpool[chat].bulk_write(instructions)
             tglm_data.deleted_messages.insert_many(deleted_msgs)
         case "types.UpdateDeleteChannelMessages":
             _messages = update.messages
