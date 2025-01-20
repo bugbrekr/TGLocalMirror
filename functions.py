@@ -34,7 +34,8 @@ USEABLE_UPDATES = [
     "types.UpdateReadChannelOutbox",
     "types.UpdateDialogUnreadMark",
     "types.UpdateChannel", # auto-handled
-    "types.UpdateChat" # auto-handled
+    "types.UpdateChat", # auto-handled
+    "types.UpdateUserStatus"
 ]
 
 class TelegramSessionManager:
@@ -279,3 +280,15 @@ def _db_name_to_peer(name):
                 "_": "peer.user",
                 "user_id": peer_id
             }
+
+def _recursive_bytes_to_base64(d):
+    if isinstance(d, list):
+        return [_recursive_bytes_to_base64(i) for i in d]
+    if isinstance(d, dict):
+        return {_recursive_bytes_to_base64(i):_recursive_bytes_to_base64(j) for i, j in d.items()}
+    if isinstance(d, tuple):
+        return _recursive_bytes_to_base64(list(d))
+    if isinstance(d, str | int | float | bytearray | bool | None):
+        return d
+    if isinstance(d, bytes | bytearray):
+        return base64.b64encode(d).decode()

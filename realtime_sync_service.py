@@ -1,14 +1,23 @@
 import functions
 import sys
 from pymongo import MongoClient, UpdateOne
-import pymongo
 import destructors
-from functions import _peer_to_db_name, _db_name_to_peer
+from functions import _peer_to_db_name, _db_name_to_peer, _recursive_bytes_to_base64
+import paho.mqtt.client as mqtt
+import json
+import threading
 
 telegram_manager = functions.TelegramSessionManager()
 mongoclient = MongoClient()
 tglm_data = mongoclient["tglm_data"]
 tglm_msgpool = mongoclient["tglm_messagepool"]
+
+mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+mqttc.on_connect = lambda a, b, c, d, e: print(a, b, c, d, e)
+try:
+    mqttc.connect("127.0.0.1")
+except Exception as e:
+    print(e)
 
 try:
     with open("db/sync_session.dat") as f:
@@ -40,16 +49,21 @@ def update_chats(chats_list):
 def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyrogram.raw.base.Update, users:dict, chats:dict):
     update_users(users.values())
     update_chats(chats.values())
+    threading.Thread(target=publish_to_mqtt, args=(
+        json.loads(str(update)),
+        {user.id: destructors.User(user) for user in users.values()},
+        {chat.id: destructors.Chat(chat) for chat in chats.values()}
+    )).start()
     match update.QUALNAME:
         case "types.UpdateNewMessage":
             message = destructors.Message(update.message)
             db_peer = _peer_to_db_name(message["peer_id"])
-            tglm_msgpool[db_peer].insert_one(message)
+            tglm_msgpool[db_peer].update_one({"id": message["id"]}, {"$set": message}, upsert=True)
             tglm_data.dialogs.update_one({"peer": message["peer_id"]}, {"$set": {"top_message": message}})
         case "types.UpdateNewChannelMessage":
             message = destructors.Message(update.message)
             db_peer = _peer_to_db_name(message["peer_id"])
-            tglm_msgpool[db_peer].insert_one(message)
+            tglm_msgpool[db_peer].update_one({"id": message["id"]}, {"$set": message}, upsert=True)
             tglm_data.dialogs.update_one({"peer": message["peer_id"]}, {"$set": {"top_message": message}})
         case "types.UpdateDeleteMessages":
             _messages = update.messages
@@ -57,6 +71,8 @@ def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyr
             for chat in tglm_msgpool.list_collection_names():
                 deleted_msgs.extend(list(tglm_msgpool[chat].find({"id": {"$in": _messages}})))
                 instructions = [UpdateOne({"id": msg}, {"$set": {"deleted": True}}, upsert=True) for msg in _messages]
+                if not instructions:
+                    return
                 tglm_msgpool[chat].bulk_write(instructions)
             tglm_data.deleted_messages.insert_many(deleted_msgs)
         case "types.UpdateDeleteChannelMessages":
@@ -124,6 +140,17 @@ def on_raw_update(user_id:int, c:functions.pyrogram.Client, update:functions.pyr
             pinned = update.pinned
             if pinned==None: return
             tglm_msgpool[db_peer].bulk_write([UpdateOne({"id": msg}, {"$set": {"pinned": pinned}}, upsert=True) for msg in update.messages])
+
+def publish_to_mqtt(update, users, chats):
+    payload = {
+            "update": _recursive_bytes_to_base64(update),
+            "users": _recursive_bytes_to_base64(users),
+            "chats": _recursive_bytes_to_base64(chats)
+        }
+    if not mqttc.is_connected():
+        mqttc.reconnect()
+    mqttc.publish("TGLocalMirror/update", json.dumps(payload))
+
 
 if __name__=="__main__":
     server.run()
